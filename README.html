@@ -1,0 +1,183 @@
+<!doctype html><html><head> 				<link rel="stylesheet" href="markdown.css"> 				<style> 				  .markdown-body { 				    box-sizing: border-box; 				    min-width: 200px; 				    max-width: 980px; 				    margin: 0 auto; 				    padding: 45px; 				  } 				  @media (max-width: 767px) { 				    .markdown-body { 				      padding: 15px; 				    } 				  } 				</style> 				</head><body class="markdown-body"><h1 id="lab3cicdwithsagemaker">Lab3 - CI/CD with Sagemaker</h1>
+<p>In the third lab you are going to create a full CI/CD pipeline for your machine learning model so you can develop, test and deploy machine learning models in an efficient, safe and repeatable manner.</p>
+<p>The AWS infrastructure you will be deploying will be modelled using the principle of Infrastructure as Code. Codifying your infrastructure allows you to treat your infrastructure as just code. You can author it with any code editor, check it into a version control system, and review the files with team members before deploying into production.</p>
+<p>The lab consist of the following steps:</p>
+<ol>
+<li><a href="#head1">Create a GitHub repo and create an OAuth token</a></li>
+<li><a href="#head2">Create a CI/CD pipeline using AWS CodePipeline</a></li>
+<li><a href="#head3">Bonus Exercise: Add Sagemaker Hyperparameter tuning to your Sagemaker training</a></li>
+</ol>
+<hr />
+<h3 id="anamehead1createagithubrepoandcreateanoauthtokena"><a name="head1">Create a GitHub repo and create an OAuth token</a></h3>
+<ol>
+<li>To integrate your continous delivery pipeline with GitHub, you will use OAuth tokens. Go to <a href="https://github.com/settings/tokens">GitHub's Token Settings</a> to generate your token and ensure you enable the following two scopes:</li>
+</ol>
+<ul>
+<li><p><strong>repo</strong>, which is used to read and pull artifacts from public and private repositories into a pipeline</p></li>
+<li><p><strong>admin:repo_hook</strong>, which is used to detect when you have committed and pushed changes to the repository</p>
+<p><strong>Make sure to copy your new personal access token now as you will need it later.</strong></p>
+<p><img src="images/image-github-oauth-token.png" alt="image-20180830161258843" /></p></li>
+</ul>
+<ol>
+<li><p>You will need a GitHub repo for your code. In GitHub create a new repository called "ml-id-lab3" and make sure it is public. Do not initialize with a README file and do not add any .ignore or license file. Copy your GitHub repo URL as you will need it later.</p>
+<p><img src="images/image-github-create-repo.png" alt="image-20180830161026015" /></p></li>
+<li><p>Open up a terminal (or cmd on Windows) and change directory into the directory where you extracted the Immersion Day material earlier. Now initialize your git repository by running the following command lines:</p></li>
+</ol>
+<pre><code class="bash language-bash">   cd Lab3
+   git init
+</code></pre>
+<p>The output will look something like this:</p>
+<p><img src="images/image-terminal-git-init.png" alt="image-20180830161916096" /></p>
+<ol start="4">
+<li>Stage your files running the following command lines:</li>
+</ol>
+<pre><code class="bash language-bash">   git add .
+   git commit -am "First commit"
+</code></pre>
+<ol start="5">
+<li>Set the remote origin and push the files by running the following command lines (use the GitHub repo URL from step 2):</li>
+</ol>
+<pre><code class="bash language-bash">   git remote add origin https://github.com/&lt;GITHUBUSER&gt;/ml-id-lab3.git
+   git push -u origin master
+</code></pre>
+<p>Now validate that you have a CloudFormation directory and Source directory in your GitHub repo.</p>
+<p><img src="images/image-github-firstcommit-push.png" alt="image-20180830163714598" /></p>
+<h3 id="anamehead2createacicdpipelineusingawscodepipelinea"><a name="head2">Create a CI/CD pipeline using AWS CodePipeline</a></h3>
+<p>Now that you have a GitHub repo with your AWS infrastructure code and your machine learning python code, you are ready to create a CI/CD pipeline.</p>
+<ol>
+<li><p>In case you have been logged out, sign into the AWS Management Console <a href="https://console.aws.amazon.com/">https://console.aws.amazon.com/</a>, and confirm that you are working in the correct region.</p></li>
+<li><p>We will create our CI/CD pipeline using a CloudFormation template. Use <a href="https://console.aws.amazon.com/cloudformation/home#/stacks?filter=active">this link</a> to go to the AWS CloudFormation dashboard.</p></li>
+<li><p>Click on the <strong>Create Stack</strong> button.</p>
+<p><img src="images/image-cloudformation-create-stack.png" alt="image-20180831131238621" /></p></li>
+<li><p>You will create the stack using an existing CloudFormation template from your local disk located in the Lab3/CloudFormation directory of the Immersion Day material. Click on the <strong>Upload a template file</strong> button and then on the <strong>Choose file</strong> button.</p></li>
+</ol>
+<p><img src="images/image-cloudformation-wizard-choosefile.png" alt="image-20180831131509289" /> </p>
+<ol start="5">
+<li>Navigate to the Lab3/CloudFormation directory and double click the <strong>codepipeline.yaml</strong> file.</li>
+</ol>
+<p><img src="images/image-cloudformation-wizard-openfile.png" alt="image-20180831131653301" /></p>
+<ol start="6">
+<li>Now click the <strong>Next</strong> button.</li>
+</ol>
+<p><img src="images/image-cloudformation-wizard-next1.png" alt="image-20180831131809052" /></p>
+<ol start="7">
+<li>You will now configure your stack. Type <strong>[Your-Initials]-ml-lab3</strong> into the <strong>Stack name</strong> text box (do not use a name longer than 15 characters. If curious why, ask your lab instructor.)</li>
+</ol>
+<p><img src="images/image-cloudformation-wizard-parameters.png" alt="image-20181029222334231" /></p>
+<p>For the stack settings parameters configure them like this</p>
+<p><strong>Email</strong> </p>
+<pre><code>   Enter your email address here. This is so you can receive CI/CD notifications.
+</code></pre>
+<p><strong>GitHubToken</strong></p>
+<pre><code>   This is the GitHub OAuth token you created in the beginning of this lab. It might
+   look something like this: 9b189a1654643522561f7b3ebd44a1531a4287af
+</code></pre>
+<p><strong>GitHubUser</strong></p>
+<pre><code>   This is the user name of the GitHub account where you just created the repo.
+</code></pre>
+<p><strong>Repo</strong></p>
+<pre><code>   This is the name of the GitHub repo you just created. It is probably: ml-id-lab3
+</code></pre>
+<p><strong>Branch</strong></p>
+<pre><code>   Leave the git branch as: master
+</code></pre>
+<p><strong>YourInitials</strong></p>
+<pre><code>   This is the initials you used in lab 1. This will make sure lab 3 reuses the bucket and the Glue Data Catalog Database that was created in lab 1.
+</code></pre>
+<ol start="8">
+<li>Now that you have typed in all the parameters click the <strong>Next</strong> button.</li>
+</ol>
+<p><img src="images/image-cloudformation-wizard-parameters.png" alt="image-20180831132058024" /></p>
+<ol start="9">
+<li>On this next page you leave all settings as default so scroll down to the bottom of the page and click the <strong>Next</strong> button.</li>
+</ol>
+<p><img src="images/image-cloudformation-wizard3.png" alt="image-20180824135347340" /></p>
+<ol start="10">
+<li>On this next page scroll down to the bottom of the page and click the <strong>I acknowledge that AWS CloudFormation might create IAM resources with custom names</strong> check box. This give CloudFormation the right to create the IAM roles needed by the CodePipeline, CodeBuild and Sagemaker services. Now click the <strong>Create stack</strong> button.</li>
+</ol>
+<p><img src="images/image-cloudformation-wizard4.png" alt="image-20180824140246989" /></p>
+<ol start="11">
+<li>Now the CloudFormation Stack is being created. Click on the <strong>Stack info</strong> tab and then wait for the <strong>Stack status</strong> to change from <strong>CREATE<em>IN</em>PROGRESS</strong> to <strong>CREATE_COMPLETE</strong>.</li>
+</ol>
+<p><img src="images/image-cloudformation-create-complete.png" alt="image-20180903104404990" /></p>
+<ol start="12">
+<li><p>The stack will create an SNS topic to send notifications to the email address entered as a parameter. Upon creation of the topic, a confirmation email will be sent, open the email and confirm the topic subscription by following the <strong>Confirm subscription</strong> link to receive further notificiations.</p></li>
+<li><p>The CloudFormation stack will create a CodePipeline that executes your Sagemaker CI/CD pipeline. Go to the CodePipeline console:  <a href="https://console.aws.amazon.com/codepipeline/home#/dashboard">https://console.aws.amazon.com/codepipeline/home#/dashboard</a></p>
+<p>Click on the name of the pipeline called something like this: <strong>[Your-Initials]-ml-id-lab3</strong></p>
+<p><img src="images/image-codepipeline-dashboard.png" alt="image-20181022144253459" /></p></li>
+<li><p>You should see a pipeline that consists of 4 different stages:</p></li>
+<li><p><strong>Source</strong> - this stage pulls the input source files from the GitHub repo you created earlier. The source files are zipped and uploaded to an S3 bucket. This source zip-file will then serve as input to the following pipeline stages. Every time you push new commits into your GitHub repo, the pipeline will execute again automatically pulling your latests commits. You can see the the S3 pipeline artifact bucket in the S3 management console: <a href="https://s3.console.aws.amazon.com/s3/home">https://s3.console.aws.amazon.com/s3/home</a></p>
+<p>The bucket is called something like <strong>[Your-Initials]-ml-lab3-pipeline-artifact-store</strong></p></li>
+<li><p><strong>Build_and_Train</strong> - This stage runs a CodeBuild build using a python 3.4.5 build container. It runs the <strong>prepdata.py</strong> and <strong>train.py</strong> python scripts that you can find in the <strong>Source</strong> directory of your GitHub repo. </p></li>
+</ol>
+<ul>
+<li><p>prepdata.py - This python script is very similar to the first part of the python notebook you ran manually in lab 2. It ends up creating a training data file and test data file that can be used by the Sagemaker training. It uses Athena to dynamically get some of the parameters that were hardcoded in the lab 2 notebook.</p></li>
+<li><p>train.py - This python script is similar to the training part of the python notebook you ran manually in lab 2. It creates a training job in Sagemaker which ends up producing an ML model that you can you can use for ML inference through Sagemaker endpoints.</p></li>
+</ul>
+<p>After the two scripts have executed, CodeBuild packages and uploads the build artifacts to an S3 bucket. In this case the artifacts include the test data file and some config files used in the next pipeline stages.</p>
+<p>If you click the <strong>Details</strong> link of the <strong>Build_and_Train</strong> stage then you will go to the CodeBuild details page. In the bottom of CodeBuild details page you can see the build logs. You will find these logs very similar to the logs you saw when running the python notebook in lab 2.</p>
+<p><img src="images/image-codepipeline-buildandtrain.png" alt="image-20180903113555848" /></p>
+<ol start="3">
+<li><strong>QA</strong> - this stage uses the CloudFormation template file <strong>sagemaker_prediction_endpoint.yaml</strong> found in the <strong>CloudFormation</strong> directory. CloudFormation is used to launch a Sagemaker QA Endpoint based on the ML model created in the Build_and_Train stage. </li>
+</ol>
+<p>When the Sagemaker QA Endpoint has launched (this can take up to 5 minutes) the Endpoint is tested by running a CodeBuild build that executes the <strong>test.py</strong> python script found in the <strong>Source</strong> directory. This python script is very similar to the last part of the python notebook you ran manually in lab 2. It will call the Sagemaker endpoint and compare the inference results with the results from the test data file. If less than 80% of the inferences are not producing the same result as found in the test data file, then an exception is thrown and the pipeline stage will fail.</p>
+<p>If you click the <strong>Details</strong> link of the <strong>LaunchEnpoint</strong> step then you will go to details of the CloudFormation stack of the Sagemaker Endpoint.</p>
+<p>If you click the <strong>Details</strong> link of the <strong>TestEndpoint</strong> step then you will go to the CodeBuild build details. </p>
+<p><img src="images/image-codepipeline-qa.png" alt="image-20180903113958361" /></p>
+<p>Click the <strong>Details</strong> link of the TestEndpoint and scroll all the way down on that page to see the build logs. In the build logs you will see the result of the tests including how many tests was correctly predicted. With a <strong>Match Rate</strong> of 80% you can see that the test barely passes our 80% threshold. In the Bonus part of this lab we will improve this match rate.</p>
+<p><img src="images/image-codepipeline-qa-testresults.png" alt="image-20180903125738578" /></p>
+<p><strong>Production</strong> - this stage first starts with an approval gate. In order to continue the pipeline you have to manually approve. Click the <strong>Review</strong> button.</p>
+<p><img src="images/image-codepipeline-approve.png" alt="image-20180903114730563" /></p>
+<p>A pop-up is opened. Type in a comment in the <strong>Comments</strong> text box and click the <strong>Approve</strong> button.</p>
+<p><img src="images/image-codepipeline-prod-approve-comment.png" alt="image-20180903125832091" /></p>
+<p>The rest of the production stage creates a Sagemaker production Endpoint and runs an Endpoint test similar to the QA stage. The creation of the production endpoint should take approximately 5 minutes.</p>
+<hr />
+<p><strong>Congratulations! You have now successfully created a fully functional CI/CD pipeline for your machine learning project.</strong> </p>
+<p>If you update the pythons scripts and push the changes into your GitHub repo you will automatically trigger a redeployment of your ML endpoints based on a new version of the ML model. Using a CI/CD pipeline with a QA stage and a manual approval step, you can safely develop and incrementally improve the quality of your ML inference endpoints while using best practices from a DevOps perspective.</p>
+<p>In the Sagemaker console you can view the training job, the ML model and the QA and Production endpoints created by the CI/CD pipeline:</p>
+<ul>
+<li><p>Sagemaker Jobs: https://console.aws.amazon.com/sagemaker/home#/jobs</p></li>
+<li><p>Sagemaker Models: https://console.aws.amazon.com/sagemaker/home#/models</p></li>
+<li><p>Sagemaker Endpoints: https://console.aws.amazon.com/sagemaker/home#/endpoints</p></li>
+</ul>
+<p>You might already be using a CI/CD solution in your job such as Jenkins, CircleCI or TeamCity. Most of the parts of this lab 3 are reusable and do not depend on AWS CodePipeline. You can use the ideas behind the pipeline and the different parts as an inspiration to create a CI/CD pipeline in the CI/CD solution you are already using at your job.</p>
+<h3 id="anamehead3bonusexerciseaddsagemakerhyperparametertuningtoyoursagemakertraininga"><a name="head3">Bonus Exercise: Add Sagemaker Hyperparameter tuning to your Sagemaker training</a></h3>
+<p>Automatic Model Tuning eliminates the undifferentiated heavy lifting required to search the hyperparameter space for more accurate models. With Amazon SageMaker Automatic Model Tuning you save significant time and effort in training and tuning your machine learning models.</p>
+<p>A Hyperparameter Tuning job launches multiple training jobs, with different hyperparameter combinations, based on the results of completed training jobs. SageMaker trains a “meta” machine learning model, based on Bayesian Optimization, to infer hyperparameter combinations for our training jobs.</p>
+<p>You will now change your existing python training code to use Hyperparameter Tuning.</p>
+<ol>
+<li><p>Open the file Lab3/Source/train.py with your favorite text editor.</p></li>
+<li><p>Go to line 136 and change the variabel <strong>no_hyper_parameter_tuning</strong> to <strong>False</strong> and save the changes</p></li>
+</ol>
+<pre><code class="python language-python">   no_hyper_parameter_tuning = False
+</code></pre>
+<ol start="3">
+<li>Now you will commit and push your change to github. In your terminal run the following</li>
+</ol>
+<pre><code class="bash language-bash">   git commit -am "Do Hyperparameter Tuning"
+   git push -u origin master
+</code></pre>
+<ol start="4">
+<li><p>CodePipeline will automatically detect that a new commit has been pushed to your github repo and start a new pipeline execution.</p>
+<p>You can go and check this here:</p>
+<p>https://console.aws.amazon.com/codepipeline/home#/dashboard</p>
+<p>When the Build_and_Train stage of the pipeline has started running you can see a Hyperparameter tuning job here:</p>
+<p>https://console.aws.amazon.com/sagemaker/home#/hyper-tuning-jobs</p>
+<p>You can see how that job has created multiple training jobs here:</p>
+<p>https://console.aws.amazon.com/sagemaker/home#/jobs</p></li>
+<li><p>When all the training jobs has finished the code will get that model from the best performing training job and the pipeline will use that model for QA and Production. In the QA test logs you can verify that the inference quality has improved from an 80% match rate to a 90% match rate.</p></li>
+</ol>
+<p>The code for creating a Hyperparameter Tuner looks like this</p>
+<pre><code class="python language-python">    my_tuner = HyperparameterTuner(
+        estimator=fm,
+        objective_metric_name='test:binary_classification_accuracy',
+        hyperparameter_ranges={
+            'epochs': IntegerParameter(1, 200),
+            'mini_batch_size': IntegerParameter(10, 10000),
+            'factors_wd': ContinuousParameter(1e-8, 512)},
+        max_jobs=4,
+        max_parallel_jobs=4)
+</code></pre>
+<p>Here you can see that <strong>epochs</strong>, <strong>mini_batch_size</strong> and <strong>factors_wd</strong> are the parameters that are being tuned. In a real world scenario you would need more than just 4 jobs (<strong>max_jobs</strong>) to find the optimal model. </p>
+<p>You can read a blog post that goes into the details of Hyperparameter Tuning here:</p>
+<p>https://aws.amazon.com/blogs/aws/sagemaker-automatic-model-tuning/</p></body></html>
